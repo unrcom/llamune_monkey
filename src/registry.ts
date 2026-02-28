@@ -20,6 +20,7 @@ export interface InstanceInfo {
   registered_at: string;
   last_seen_at: string;
   healthy: boolean;
+  unhealthy_since: string | null;
 }
 
 type ChangeListener = (instances: InstanceInfo[]) => void;
@@ -48,6 +49,7 @@ class Registry {
       registered_at: existing?.registered_at ?? now,
       last_seen_at: now,
       healthy: true,
+      unhealthy_since: null,
     };
     this.instances.set(data.instance_id, instance);
     this.notify();
@@ -75,6 +77,7 @@ class Registry {
     const instance = this.instances.get(instance_id);
     if (instance && instance.healthy) {
       instance.healthy = false;
+      instance.unhealthy_since = new Date().toISOString();
       this.notify();
     }
   }
@@ -83,8 +86,29 @@ class Registry {
     const instance = this.instances.get(instance_id);
     if (instance && !instance.healthy) {
       instance.healthy = true;
+      instance.unhealthy_since = null;
       instance.last_seen_at = new Date().toISOString();
       this.notify();
+    }
+  }
+
+  // ── 自動削除 ──────────────────────────────────
+
+  autoRemoveUnhealthy(thresholdMs: number): void {
+    const now = Date.now();
+    for (const instance of this.instances.values()) {
+      if (
+        !instance.healthy &&
+        instance.unhealthy_since !== null &&
+        now - new Date(instance.unhealthy_since).getTime() >= thresholdMs
+      ) {
+        console.log(
+          `🗑️  Auto-removing unhealthy instance: ${instance.instance_id} ` +
+          `(unhealthy since ${instance.unhealthy_since})`
+        );
+        this.instances.delete(instance.instance_id);
+        this.notify();
+      }
     }
   }
 
