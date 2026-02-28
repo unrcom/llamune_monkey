@@ -4,6 +4,7 @@
  * 応答がなければ unhealthy にマークする
  */
 
+import 'dotenv/config';
 import { registry } from './registry.js';
 
 const INTERVAL_MS = parseInt(process.env.INSTANCE_CHECK_INTERVAL_MS ?? '10000');
