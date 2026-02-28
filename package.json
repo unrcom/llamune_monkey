@@ -1,0 +1,30 @@
+{
+  "name": "llamune_monkey",
+  "version": "0.1.0",
+  "description": "llamune インスタンス レジストリ＆モニタリング",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
