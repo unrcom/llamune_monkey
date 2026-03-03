@@ -5,6 +5,11 @@
 
 export type ModelStatus = 'idle' | 'loading' | 'inferring';
 
+export interface AllowedModel {
+  model_name: string;
+  version: number;
+}
+
 export interface InstanceInfo {
   instance_id: string;
   url: string;
@@ -21,6 +26,7 @@ export interface InstanceInfo {
   last_seen_at: string;
   healthy: boolean;
   unhealthy_since: string | null;
+  allowed_models: AllowedModel[];
 }
 
 type ChangeListener = (instances: InstanceInfo[]) => void;
@@ -35,6 +41,7 @@ class Registry {
     instance_id: string;
     url: string;
     description?: string;
+    allowed_models?: AllowedModel[];
   }): InstanceInfo {
     const now = new Date().toISOString();
     const existing = this.instances.get(data.instance_id);
@@ -50,6 +57,7 @@ class Registry {
       last_seen_at: now,
       healthy: true,
       unhealthy_since: null,
+      allowed_models: data.allowed_models ?? existing?.allowed_models ?? [],
     };
     this.instances.set(data.instance_id, instance);
     this.notify();
@@ -64,7 +72,7 @@ class Registry {
 
   updateStatus(
     instance_id: string,
-    status: Partial<Pick<InstanceInfo, 'model_status' | 'current_model' | 'queue_size' | 'active_request'>>
+    status: Partial<Pick<InstanceInfo, 'model_status' | 'current_model' | 'queue_size' | 'active_request' | 'allowed_models'>>
   ): boolean {
     const instance = this.instances.get(instance_id);
     if (!instance) return false;
