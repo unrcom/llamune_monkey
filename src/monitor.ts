@@ -1,36 +1,34 @@
 /**
  * 死活監視
- * 登録済みインスタンスに定期的に GET /health を送り、
- * 応答がなければ unhealthy にマークする。
- * 一定時間 unhealthy が続いたインスタンスは自動削除する。
+ * ハートビートのタイムアウトで unhealthy を判定し、即削除する。
+ * HEARTBEAT_INTERVAL_MS × HEARTBEAT_MISS_COUNT 以上 last_seen_at が
+ * 更新されなければインスタンスを削除する。
  */
 
 import 'dotenv/config';
 import { registry } from './registry.js';
+import { logAutoRemoved } from './logger.js';
 
-const INTERVAL_MS = parseInt(process.env.INSTANCE_CHECK_INTERVAL_MS ?? '10000');
-const AUTO_REMOVE_MS = parseInt(process.env.UNHEALTHY_AUTO_REMOVE_MS ?? '300000'); // デフォルト5分
-
-async function checkInstance(instance_id: string, url: string) {
-  try {
-    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      registry.markHealthy(instance_id);
-    } else {
-      registry.markUnhealthy(instance_id);
-    }
-  } catch {
-    registry.markUnhealthy(instance_id);
-  }
-}
+const HEARTBEAT_INTERVAL_MS = parseInt(process.env.HEARTBEAT_INTERVAL_MS ?? '30000');
+const HEARTBEAT_MISS_COUNT = parseInt(process.env.HEARTBEAT_MISS_COUNT ?? '3');
+const TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * HEARTBEAT_MISS_COUNT;
+const CHECK_INTERVAL_MS = HEARTBEAT_INTERVAL_MS;
 
 export function startMonitor() {
-  console.log(`🔍 Monitor started (interval: ${INTERVAL_MS}ms, auto-remove after: ${AUTO_REMOVE_MS}ms)`);
+  console.log(
+    `[${new Date().toISOString()}] 🔍 Monitor started (heartbeat interval: ${HEARTBEAT_INTERVAL_MS}ms, ` +
+    `miss count: ${HEARTBEAT_MISS_COUNT}, timeout: ${TIMEOUT_MS}ms)`
+  );
   setInterval(() => {
-    const instances = registry.getAll();
-    for (const instance of instances) {
-      checkInstance(instance.instance_id, instance.url);
+    const now = Date.now();
+    for (const instance of registry.getAll()) {
+      const lastSeen = new Date(instance.last_seen_at).getTime();
+      if (now - lastSeen >= TIMEOUT_MS) {
+        const msg = `[${new Date().toISOString()}] 🗑️  Auto-removing instance (heartbeat timeout): ${instance.instance_id} (last_seen_at: ${instance.last_seen_at})`;
+        console.log(msg);
+        logAutoRemoved({ instance_id: instance.instance_id, last_seen_at: instance.last_seen_at });
+        registry.unregister(instance.instance_id);
+      }
     }
-    registry.autoRemoveUnhealthy(AUTO_REMOVE_MS);
-  }, INTERVAL_MS);
+  }, CHECK_INTERVAL_MS);
 }

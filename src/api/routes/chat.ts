@@ -57,6 +57,7 @@ function selectInstance(model_name: string) {
 router.post('/', async (req: Request, res: Response) => {
   const { model_name, session_id, user_id } = req.body;
   const api_key = req.headers['x-api-key'] as string;
+  const from_ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
 
   if (!model_name) {
     res.status(400).json({ error: 'model_name は必須です' });
@@ -117,9 +118,10 @@ router.post('/', async (req: Request, res: Response) => {
       // ストリーム完了後にログ記録
       logRouted({
         api_key,
+        from_ip,
+        to_instance_id: instance.instance_id,
         model_name,
         version,
-        instance_id: instance.instance_id,
         session_id: session_id ?? 0,
         user_id: user_id ?? 0,
         ttft_ms: ttft_ms ?? 0,

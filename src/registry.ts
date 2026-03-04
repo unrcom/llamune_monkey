@@ -92,12 +92,11 @@ class Registry {
 
   markHealthy(instance_id: string) {
     const instance = this.instances.get(instance_id);
-    if (instance && !instance.healthy) {
-      instance.healthy = true;
-      instance.unhealthy_since = null;
-      instance.last_seen_at = new Date().toISOString();
-      this.notify();
-    }
+    if (!instance) return;
+    instance.healthy = true;
+    instance.unhealthy_since = null;
+    instance.last_seen_at = new Date().toISOString();
+    this.notify();
   }
 
   // ── 自動削除 ──────────────────────────────────

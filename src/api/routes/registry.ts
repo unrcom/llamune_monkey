@@ -1,9 +1,10 @@
 /**
  * レジストリ API
- * POST   /api/registry/register          - インスタンス登録
- * DELETE /api/registry/:instance_id      - インスタンス登録解除
- * PATCH  /api/registry/:instance_id      - 状態更新
- * GET    /api/registry/instances         - インスタンス一覧
+ * POST   /api/registry/register               - インスタンス登録
+ * DELETE /api/registry/:instance_id           - インスタンス登録解除
+ * PATCH  /api/registry/:instance_id           - 状態更新
+ * PUT    /api/registry/:instance_id/heartbeat - ハートビート受信
+ * GET    /api/registry/instances              - インスタンス一覧
  */
 
 import { Router } from 'express';
@@ -19,7 +20,7 @@ router.post('/register', (req, res) => {
     return;
   }
   const instance = registry.register({ instance_id, url, description, allowed_models });
-  console.log(`✅ Registered: ${instance_id} (${url})`);
+  console.log(`[${new Date().toISOString()}] ✅ Registered: ${instance_id} (${url})`);
   res.status(201).json(instance);
 });
 
@@ -31,7 +32,7 @@ router.delete('/:instance_id', (req, res) => {
     res.status(404).json({ error: 'インスタンスが見つかりません' });
     return;
   }
-  console.log(`🗑️  Unregistered: ${instance_id}`);
+  console.log(`[${new Date().toISOString()}] 🗑️  Unregistered: ${instance_id}`);
   res.json({ message: `${instance_id} の登録を解除しました` });
 });
 
@@ -51,6 +52,19 @@ router.patch('/:instance_id', (req, res) => {
     return;
   }
   res.json(registry.get(instance_id));
+});
+
+// ハートビート
+router.put('/:instance_id/heartbeat', (req, res) => {
+  const { instance_id } = req.params;
+  const instance = registry.get(instance_id);
+  if (!instance) {
+    res.status(404).json({ error: 'インスタンスが見つかりません' });
+    return;
+  }
+  registry.markHealthy(instance_id);
+  console.log(`[${new Date().toISOString()}] 💓 Heartbeat: ${instance_id}`);
+  res.json({ message: 'ok' });
 });
 
 // 一覧

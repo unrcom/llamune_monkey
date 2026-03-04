@@ -11,19 +11,30 @@ const LOG_FILE = process.env.LOG_FILE ?? 'logs/monkey.jsonl';
 // ログディレクトリを作成
 fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
 
+function maskApiKey(key: string): string {
+  if (key.length <= 8) return '****';
+  return `${key.slice(0, 4)}...${key.slice(-4)}`;
+}
+
 function write(record: object) {
+  const masked = Object.fromEntries(
+    Object.entries(record).map(([k, v]) =>
+      k === 'api_key' && typeof v === 'string' ? [k, maskApiKey(v)] : [k, v]
+    )
+  );
   const line = JSON.stringify({
     timestamp: new Date().toISOString(),
-    ...record,
+    ...masked,
   });
   fs.appendFileSync(LOG_FILE, line + '\n');
 }
 
 export function logRouted(params: {
   api_key: string;
+  from_ip: string;
+  to_instance_id: string;
   model_name: string;
   version: number;
-  instance_id: string;
   session_id: number;
   user_id: number;
   ttft_ms: number;
@@ -60,4 +71,11 @@ export function logProxyError(params: {
   error: string;
 }) {
   write({ event: 'proxy_error', ...params });
+}
+
+export function logAutoRemoved(params: {
+  instance_id: string;
+  last_seen_at: string;
+}) {
+  write({ event: 'auto_removed', ...params });
 }
