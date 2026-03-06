@@ -8,7 +8,6 @@ import path from 'path';
 
 const LOG_FILE = process.env.LOG_FILE ?? 'logs/monkey.jsonl';
 
-// ログディレクトリを作成
 fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
 
 function maskApiKey(key: string): string {
@@ -33,7 +32,7 @@ export function logRouted(params: {
   api_key: string;
   from_ip: string;
   to_instance_id: string;
-  model_name: string;
+  app_name: string;
   version: number;
   session_id: number;
   user_id: number;
@@ -45,7 +44,7 @@ export function logRouted(params: {
 
 export function logRoutingFailed(params: {
   api_key: string;
-  model_name: string;
+  app_name: string;
   version: number | null;
   session_id: number;
   user_id: number;
@@ -63,7 +62,7 @@ export function logAuthError(params: {
 
 export function logProxyError(params: {
   api_key: string;
-  model_name: string;
+  app_name: string;
   version: number;
   instance_id: string;
   session_id: number;

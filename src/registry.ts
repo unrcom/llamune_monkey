@@ -5,8 +5,8 @@
 
 export type ModelStatus = 'idle' | 'loading' | 'inferring';
 
-export interface AllowedModel {
-  model_name: string;
+export interface AllowedApp {
+  app_name: string;
   version: number;
 }
 
@@ -26,7 +26,7 @@ export interface InstanceInfo {
   last_seen_at: string;
   healthy: boolean;
   unhealthy_since: string | null;
-  allowed_models: AllowedModel[];
+  allowed_apps: AllowedApp[];
 }
 
 type ChangeListener = (instances: InstanceInfo[]) => void;
@@ -35,13 +35,11 @@ class Registry {
   private instances = new Map<string, InstanceInfo>();
   private listeners: ChangeListener[] = [];
 
-  // ── 登録・更新・削除 ──────────────────────────
-
   register(data: {
     instance_id: string;
     url: string;
     description?: string;
-    allowed_models?: AllowedModel[];
+    allowed_apps?: AllowedApp[];
   }): InstanceInfo {
     const now = new Date().toISOString();
     const existing = this.instances.get(data.instance_id);
@@ -57,7 +55,7 @@ class Registry {
       last_seen_at: now,
       healthy: true,
       unhealthy_since: null,
-      allowed_models: data.allowed_models ?? existing?.allowed_models ?? [],
+      allowed_apps: data.allowed_apps ?? existing?.allowed_apps ?? [],
     };
     this.instances.set(data.instance_id, instance);
     this.notify();
@@ -72,7 +70,7 @@ class Registry {
 
   updateStatus(
     instance_id: string,
-    status: Partial<Pick<InstanceInfo, 'model_status' | 'current_model' | 'queue_size' | 'active_request' | 'allowed_models'>>
+    status: Partial<Pick<InstanceInfo, 'model_status' | 'current_model' | 'queue_size' | 'active_request' | 'allowed_apps'>>
   ): boolean {
     const instance = this.instances.get(instance_id);
     if (!instance) return false;
@@ -99,8 +97,6 @@ class Registry {
     this.notify();
   }
 
-  // ── 自動削除 ──────────────────────────────────
-
   autoRemoveUnhealthy(thresholdMs: number): void {
     const now = Date.now();
     for (const instance of this.instances.values()) {
@@ -109,17 +105,12 @@ class Registry {
         instance.unhealthy_since !== null &&
         now - new Date(instance.unhealthy_since).getTime() >= thresholdMs
       ) {
-        console.log(
-          `🗑️  Auto-removing unhealthy instance: ${instance.instance_id} ` +
-          `(unhealthy since ${instance.unhealthy_since})`
-        );
+        console.log(`🗑️  Auto-removing unhealthy instance: ${instance.instance_id}`);
         this.instances.delete(instance.instance_id);
         this.notify();
       }
     }
   }
-
-  // ── 取得 ──────────────────────────────────────
 
   getAll(): InstanceInfo[] {
     return Array.from(this.instances.values());
@@ -128,8 +119,6 @@ class Registry {
   get(instance_id: string): InstanceInfo | undefined {
     return this.instances.get(instance_id);
   }
-
-  // ── 変更通知（WebSocket 用） ───────────────────
 
   subscribe(listener: ChangeListener) {
     this.listeners.push(listener);
@@ -145,5 +134,4 @@ class Registry {
   }
 }
 
-// シングルトン
 export const registry = new Registry();

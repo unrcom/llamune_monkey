@@ -14,12 +14,12 @@ const router = Router();
 
 // 登録
 router.post('/register', (req, res) => {
-  const { instance_id, url, description, allowed_models } = req.body;
+  const { instance_id, url, description, allowed_apps } = req.body;
   if (!instance_id || !url) {
     res.status(400).json({ error: 'instance_id と url は必須です' });
     return;
   }
-  const instance = registry.register({ instance_id, url, description, allowed_models });
+  const instance = registry.register({ instance_id, url, description, allowed_apps });
   console.log(`[${new Date().toISOString()}] ✅ Registered: ${instance_id} (${url})`);
   res.status(201).json(instance);
 });
@@ -39,13 +39,13 @@ router.delete('/:instance_id', (req, res) => {
 // 状態更新
 router.patch('/:instance_id', (req, res) => {
   const { instance_id } = req.params;
-  const { model_status, current_model, queue_size, active_request, allowed_models } = req.body;
+  const { model_status, current_model, queue_size, active_request, allowed_apps } = req.body;
   const updated = registry.updateStatus(instance_id, {
     model_status,
     current_model,
     queue_size,
     active_request,
-    allowed_models,
+    allowed_apps,
   });
   if (!updated) {
     res.status(404).json({ error: 'インスタンスが見つかりません' });

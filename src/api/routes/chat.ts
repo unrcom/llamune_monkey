@@ -5,48 +5,47 @@
 
 import { Router, Request, Response } from 'express';
 import { registry } from '../../registry.js';
-import { denyModels } from './denyModels.js';
+import { denyApps } from './denyModels.js';
 import { logRouted, logRoutingFailed, logProxyError } from '../../logger.js';
 
 const router = Router();
 
 const INTERNAL_TOKEN = process.env.INTERNAL_TOKEN ?? '';
 
-function selectInstance(model_name: string) {
-  // 1. deny_models チェック
-  if (denyModels.has(model_name)) {
+function selectInstance(app_name: string) {
+  // 1. deny_apps チェック
+  if (denyApps.has(app_name)) {
     return { routable: false, reason: 'training_in_progress' } as const;
   }
 
-  // 2. allowed_models に model_name が含まれるインスタンスを絞り込む
-  // 3. healthy なものだけに絞る
+  // 2. allowed_apps に app_name が含まれる healthy なインスタンスを絞り込む
   const candidates = registry.getAll().filter(
     (i) =>
       i.healthy &&
-      i.allowed_models.some((m) => m.model_name === model_name)
+      i.allowed_apps.some((a) => a.app_name === app_name)
   );
 
   if (candidates.length === 0) {
     const anyMatch = registry.getAll().some((i) =>
-      i.allowed_models.some((m) => m.model_name === model_name)
+      i.allowed_apps.some((a) => a.app_name === app_name)
     );
     return {
       routable: false,
-      reason: anyMatch ? 'no_healthy_instance' : 'no_matching_model',
+      reason: anyMatch ? 'no_healthy_instance' : 'no_matching_app',
     } as const;
   }
 
-  // 4. version が最新のものを優先
+  // 3. version が最新のものを優先
   const maxVersion = Math.max(
     ...candidates.map(
-      (i) => i.allowed_models.find((m) => m.model_name === model_name)!.version
+      (i) => i.allowed_apps.find((a) => a.app_name === app_name)!.version
     )
   );
   const latestCandidates = candidates.filter(
-    (i) => i.allowed_models.find((m) => m.model_name === model_name)!.version === maxVersion
+    (i) => i.allowed_apps.find((a) => a.app_name === app_name)!.version === maxVersion
   );
 
-  // 5. queue_size が最小のものを選ぶ
+  // 4. queue_size が最小のものを選ぶ
   const selected = latestCandidates.reduce((a, b) =>
     a.queue_size <= b.queue_size ? a : b
   );
@@ -55,21 +54,21 @@ function selectInstance(model_name: string) {
 }
 
 router.post('/', async (req: Request, res: Response) => {
-  const { model_name, session_id, user_id } = req.body;
-  const api_key = req.headers['x-api-key'] as string;
+  const { app_name, session_id, user_id } = req.body;
+  const api_key = req.headers['authorization'] as string;
   const from_ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
 
-  if (!model_name) {
-    res.status(400).json({ error: 'model_name は必須です' });
+  if (!app_name) {
+    res.status(400).json({ error: 'app_name は必須です' });
     return;
   }
 
-  const result = selectInstance(model_name);
+  const result = selectInstance(app_name);
 
   if (!result.routable) {
     logRoutingFailed({
       api_key,
-      model_name,
+      app_name,
       version: null,
       session_id: session_id ?? 0,
       user_id: user_id ?? 0,
@@ -89,6 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': api_key,
         'X-Internal-Token': INTERNAL_TOKEN,
       },
       body: JSON.stringify(req.body),
@@ -115,12 +115,11 @@ router.post('/', async (req: Request, res: Response) => {
       }
       res.end();
 
-      // ストリーム完了後にログ記録
       logRouted({
         api_key,
         from_ip,
         to_instance_id: instance.instance_id,
-        model_name,
+        app_name,
         version,
         session_id: session_id ?? 0,
         user_id: user_id ?? 0,
@@ -133,7 +132,7 @@ router.post('/', async (req: Request, res: Response) => {
     console.error(`❌ Proxy error to ${instance.instance_id}:`, e);
     logProxyError({
       api_key,
-      model_name,
+      app_name,
       version,
       instance_id: instance.instance_id,
       session_id: session_id ?? 0,
