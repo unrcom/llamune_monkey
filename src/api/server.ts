@@ -10,6 +10,7 @@ import registryRouter from './routes/registry.js';
 import denyModelsRouter from './routes/denyModels.js';
 import chatRouter from './routes/chat.js';
 import { setupWebSocket } from './routes/ws.js';
+import { registry } from '../registry.js';
 
 const app = express();
 
@@ -49,20 +50,28 @@ app.use('/api/deny-models', requireInternalToken, denyModelsRouter);
 // チャット（ルーティング・プロキシ）は認証素通し（poc バックで検証）
 app.use('/api/chat', chatRouter);
 
-// /api/poc/* 汎用プロキシ（認証素通し、poc バックで検証）
-app.use('/api/poc', async (req: Request, res: Response) => {
-  if (!POC_PROXY_URL) {
-    res.status(503).json({ error: 'POC_PROXY_URL が設定されていません' });
+// /api/poc/:app_name/* 汎用プロキシ（認証素通し、poc バックで検証）
+app.use('/api/poc/:app_name', async (req: Request, res: Response) => {
+  const { app_name } = req.params;
+
+  const candidates = registry.getAll().filter(
+    (i) => i.healthy && i.allowed_apps.some((a) => a.app_name === app_name)
+  );
+  if (candidates.length === 0) {
+    res.status(503).json({ error: 'no_matching_app' });
     return;
   }
-  const targetPath = req.originalUrl.replace('/api/poc', '');
-  const targetUrl = `${POC_PROXY_URL}${targetPath}`;
+  const instance = candidates.reduce((a, b) => a.queue_size <= b.queue_size ? a : b);
+
+  const targetPath = req.originalUrl.replace(`/api/poc/${app_name}`, '');
+  const targetUrl = `${instance.url}${targetPath}`;
+
   try {
     const pocRes = await fetch(targetUrl, {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
-        ...( req.headers['authorization'] ? { 'Authorization': req.headers['authorization'] as string } : {}),
+        ...(req.headers['authorization'] ? { 'Authorization': req.headers['authorization'] as string } : {}),
         'X-Internal-Token': INTERNAL_TOKEN,
       },
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body),
