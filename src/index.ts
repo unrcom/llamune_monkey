@@ -8,7 +8,7 @@ import { startMonitor } from './monitor.js';
 
 const PORT = process.env.PORT || 4000;
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log('');
   console.log('🐒 llamune_monkey starting...');
   console.log('');
