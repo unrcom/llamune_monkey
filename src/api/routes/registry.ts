@@ -62,6 +62,10 @@ router.put('/:instance_id/heartbeat', (req, res) => {
     res.status(404).json({ error: 'インスタンスが見つかりません' });
     return;
   }
+  const { allowed_apps } = req.body;
+  if (Array.isArray(allowed_apps)) {
+    registry.updateStatus(instance_id, { allowed_apps });
+  }
   registry.markHealthy(instance_id);
   console.log(`[${new Date().toISOString()}] 💓 Heartbeat: ${instance_id}`);
   res.json({ message: 'ok' });
