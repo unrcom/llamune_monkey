@@ -95,8 +95,15 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     res.setHeader('Content-Type', pocRes.headers.get('content-type') ?? 'text/plain');
-    res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('X-Instance-Id', instance.instance_id);
+
+    if (!pocRes.ok) {
+      const errorBody = await pocRes.json().catch(() => ({ detail: pocRes.statusText }));
+      res.status(pocRes.status).json(errorBody);
+      return;
+    }
+
+    res.setHeader('Transfer-Encoding', 'chunked');
 
     if (!pocRes.body) {
       res.status(502).json({ error: 'poc からレスポンスがありません' });
