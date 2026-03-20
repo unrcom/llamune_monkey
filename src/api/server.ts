@@ -53,7 +53,7 @@ app.use('/api/chat', chatRouter);
 // /api/poc/* 汎用プロキシ（認証素通し、poc バックで検証）
 // healthy なインスタンスのうち queue_size 最小のものに転送
 app.use('/api/poc', async (req: Request, res: Response) => {
-  const candidates = registry.getAll().filter((i) => i.healthy);
+  const candidates = registry.getAll().filter((i) => i.healthy && i.instance_id.startsWith('llamune-poc'));
   if (candidates.length === 0) {
     res.status(503).json({ error: 'no_healthy_instance' });
     return;
@@ -94,6 +94,36 @@ app.use('/api/poc', async (req: Request, res: Response) => {
     }
   } catch (e: any) {
     console.error(`❌ Proxy error to poc:`, e);
+    res.status(502).json({ error: 'プロキシエラー' });
+  }
+});
+
+// /api/learn/* 汎用プロキシ（認証素通し、learn バックで検証）
+app.use('/api/learn', async (req: Request, res: Response) => {
+  const candidates = registry.getAll().filter((i) => i.healthy && i.instance_id.startsWith('llamune-learn'));
+  if (candidates.length === 0) {
+    res.status(503).json({ error: 'no_healthy_instance' });
+    return;
+  }
+  const instance = candidates.reduce((a, b) => a.queue_size <= b.queue_size ? a : b);
+  const targetPath = req.originalUrl.replace('/api/learn', '');
+  const targetUrl = `${instance.url}${targetPath}`;
+
+  try {
+    const learnRes = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(req.headers['authorization'] ? { 'Authorization': req.headers['authorization'] as string } : {}),
+        'X-Internal-Token': INTERNAL_TOKEN,
+      },
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body),
+    });
+
+    const data = await learnRes.json();
+    res.status(learnRes.status).json(data);
+  } catch (e: any) {
+    console.error(`❌ Proxy error to learn:`, e);
     res.status(502).json({ error: 'プロキシエラー' });
   }
 });

@@ -6,7 +6,7 @@ import 'dotenv/config';
 import { httpServer } from './api/server.js';
 import { startMonitor } from './monitor.js';
 
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log('');
