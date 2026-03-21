@@ -1,4 +1,3 @@
-cat > ~/dev/llamune_monkey/README.md << 'EOF'
 # 🐒 llamune_monkey
 
 llamune インスタンスのレジストリ・ルーティング・監視サービスです。
@@ -52,13 +51,38 @@ cp .env.example .env
 | 変数名 | デフォルト | 説明 |
 |--------|-----------|------|
 | `PORT` | `4000` | サーバーのポート番号 |
-| `INTERNAL_TOKEN` | `` | 内部通信用トークン（poc・learn と合わせる） |
+| `INTERNAL_TOKEN` | `` | 内部通信用トークン（poc・learn と合わせる）|
 | `HEARTBEAT_INTERVAL_MS` | `30000` | ハートビート間隔（ミリ秒）。各インスタンスの `HEARTBEAT_INTERVAL` × 1000 と合わせる |
 | `HEARTBEAT_MISS_COUNT` | `3` | この回数分ハートビートが来なければインスタンスを削除 |
+
+### instances テーブルへのインスタンス登録
+
+monkey 自身のインスタンス情報も Primary DB（llamune_poc DB）の `instances` テーブルで管理します。
+起動前に対象インスタンスのレコードを登録してください。
+```sql
+INSERT INTO instances (instance_id, component, display_name, self_url) VALUES
+  ('monkey-1', 'monkey', 'm1', 'http://<host>:4000'),
+  ('monkey-2', 'monkey', 'm2', 'http://<host>:4001');
+```
+
+※ 現時点では monkey 自身は `instances` テーブルを参照しません。将来のクラスタリング対応に備えて登録しておきます。
 
 ## 起動方法
 
 ### pm2 で起動（推奨）
+
+`ecosystem.config.cjs` の `env` に `PORT` を設定して起動します。複数インスタンスを起動する場合は以下のように定義します。
+```js
+// ecosystem.config.cjs の例（複数インスタンス）
+{
+  name: 'monkey-1',
+  env: { PORT: '4000' }
+},
+{
+  name: 'monkey-2',
+  env: { PORT: '4001' }
+}
+```
 ```bash
 npm run build
 pm2 start ecosystem.config.cjs
