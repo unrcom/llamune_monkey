@@ -9,7 +9,7 @@ export type ActiveRequest = {
 export type InstanceInfo = {
   instance_id: string;
   url: string;
-  description: string;
+  display_name: string;
   model_status: ModelStatus;
   current_model: string | null;
   queue_size: number;

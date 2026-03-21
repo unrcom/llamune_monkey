@@ -9,23 +9,29 @@
 
 import { Router } from 'express';
 import { registry } from '../../registry.js';
+import { broadcast, isPropagated } from '../../peers.js';
 
 const router = Router();
 
 // 登録
-router.post('/register', (req, res) => {
-  const { instance_id, url, description, allowed_apps } = req.body;
+router.post('/register', async (req, res) => {
+  const { instance_id, url, display_name, instance_type, allowed_apps } = req.body;
   if (!instance_id || !url) {
     res.status(400).json({ error: 'instance_id と url は必須です' });
     return;
   }
-  const instance = registry.register({ instance_id, url, description, allowed_apps });
+  const instance = registry.register({ instance_id, url, display_name, instance_type, allowed_apps });
   console.log(`[${new Date().toISOString()}] ✅ Registered: ${instance_id} (${url})`);
+
+  if (!isPropagated(req.headers)) {
+    await broadcast("POST", "/api/registry/register", { instance_id, url, display_name, instance_type, allowed_apps });
+  }
+
   res.status(201).json(instance);
 });
 
 // 登録解除
-router.delete('/:instance_id', (req, res) => {
+router.delete('/:instance_id', async (req, res) => {
   const { instance_id } = req.params;
   const deleted = registry.unregister(instance_id);
   if (!deleted) {
@@ -33,11 +39,16 @@ router.delete('/:instance_id', (req, res) => {
     return;
   }
   console.log(`[${new Date().toISOString()}] 🗑️  Unregistered: ${instance_id}`);
+
+  if (!isPropagated(req.headers)) {
+    await broadcast('DELETE', `/api/registry/${instance_id}`);
+  }
+
   res.json({ message: `${instance_id} の登録を解除しました` });
 });
 
 // 状態更新
-router.patch('/:instance_id', (req, res) => {
+router.patch('/:instance_id', async (req, res) => {
   const { instance_id } = req.params;
   const { model_status, current_model, queue_size, active_request, allowed_apps } = req.body;
   const updated = registry.updateStatus(instance_id, {
@@ -51,11 +62,22 @@ router.patch('/:instance_id', (req, res) => {
     res.status(404).json({ error: 'インスタンスが見つかりません' });
     return;
   }
+
+  if (!isPropagated(req.headers)) {
+    await broadcast('PATCH', `/api/registry/${instance_id}`, {
+      model_status,
+      current_model,
+      queue_size,
+      active_request,
+      allowed_apps,
+    });
+  }
+
   res.json(registry.get(instance_id));
 });
 
 // ハートビート
-router.put('/:instance_id/heartbeat', (req, res) => {
+router.put('/:instance_id/heartbeat', async (req, res) => {
   const { instance_id } = req.params;
   const instance = registry.get(instance_id);
   if (!instance) {
@@ -68,6 +90,11 @@ router.put('/:instance_id/heartbeat', (req, res) => {
   }
   registry.markHealthy(instance_id);
   console.log(`[${new Date().toISOString()}] 💓 Heartbeat: ${instance_id}`);
+
+  if (!isPropagated(req.headers)) {
+    await broadcast('PUT', `/api/registry/${instance_id}/heartbeat`, { allowed_apps });
+  }
+
   res.json({ message: 'ok' });
 });
 

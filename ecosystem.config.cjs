@@ -10,6 +10,7 @@ module.exports = {
       merge_logs: true,
       env: {
         PORT: '4000',
+        PEER_URLS: 'http://192.168.114.104:4001',
       },
     },
     {
@@ -22,6 +23,7 @@ module.exports = {
       merge_logs: true,
       env: {
         PORT: '4001',
+        PEER_URLS: 'http://192.168.114.104:4000',
       },
     },
   ]

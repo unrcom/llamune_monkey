@@ -13,7 +13,8 @@ export interface AllowedApp {
 export interface InstanceInfo {
   instance_id: string;
   url: string;
-  description: string;
+  display_name: string;
+  instance_type: string;
   model_status: ModelStatus;
   current_model: string | null;
   queue_size: number;
@@ -38,7 +39,8 @@ class Registry {
   register(data: {
     instance_id: string;
     url: string;
-    description?: string;
+    display_name?: string;
+    instance_type?: string;
     allowed_apps?: AllowedApp[];
   }): InstanceInfo {
     const now = new Date().toISOString();
@@ -46,7 +48,8 @@ class Registry {
     const instance: InstanceInfo = {
       instance_id: data.instance_id,
       url: data.url,
-      description: data.description ?? data.instance_id,
+      display_name: data.display_name ?? data.instance_id,
+      instance_type: data.instance_type ?? existing?.instance_type ?? '',
       model_status: existing?.model_status ?? 'idle',
       current_model: existing?.current_model ?? null,
       queue_size: existing?.queue_size ?? 0,

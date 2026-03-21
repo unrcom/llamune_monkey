@@ -53,7 +53,7 @@ app.use('/api/chat', chatRouter);
 // /api/poc/* 汎用プロキシ（認証素通し、poc バックで検証）
 // healthy なインスタンスのうち queue_size 最小のものに転送
 app.use('/api/poc', async (req: Request, res: Response) => {
-  const candidates = registry.getAll().filter((i) => i.healthy && i.instance_id.startsWith('llamune-poc'));
+  const candidates = registry.getAll().filter((i) => i.healthy && i.instance_type === 'poc');
   if (candidates.length === 0) {
     res.status(503).json({ error: 'no_healthy_instance' });
     return;
@@ -100,7 +100,7 @@ app.use('/api/poc', async (req: Request, res: Response) => {
 
 // /api/learn/* 汎用プロキシ（認証素通し、learn バックで検証）
 app.use('/api/learn', async (req: Request, res: Response) => {
-  const candidates = registry.getAll().filter((i) => i.healthy && i.instance_id.startsWith('llamune-learn'));
+  const candidates = registry.getAll().filter((i) => i.healthy && i.instance_type === 'learn');
   if (candidates.length === 0) {
     res.status(503).json({ error: 'no_healthy_instance' });
     return;
