@@ -88,6 +88,8 @@ app.use('/api/poc', async (req: Request, res: Response) => {
         await pump();
       };
       await pump();
+    } else if (pocRes.status === 204) {
+      res.status(204).end();
     } else {
       const data = await pocRes.json();
       res.status(pocRes.status).json(data);
