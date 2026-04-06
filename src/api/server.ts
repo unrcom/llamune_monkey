@@ -122,8 +122,27 @@ app.use('/api/learn', async (req: Request, res: Response) => {
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body),
     });
 
-    const data = await learnRes.json();
-    res.status(learnRes.status).json(data);
+    // SSEストリーミングレスポンスの場合はそのままパイプ
+    const contentType = learnRes.headers.get('content-type') ?? '';
+    if (contentType.includes('text/event-stream') && learnRes.body) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.status(learnRes.status);
+      const reader = learnRes.body.getReader();
+      const pump = async (): Promise<void> => {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); return; }
+        res.write(Buffer.from(value));
+        await pump();
+      };
+      await pump();
+    } else if (learnRes.status === 204) {
+      res.status(204).end();
+    } else {
+      const data = await learnRes.json();
+      res.status(learnRes.status).json(data);
+    }
   } catch (e: any) {
     console.error(`❌ Proxy error to learn:`, e);
     res.status(502).json({ error: 'プロキシエラー' });
